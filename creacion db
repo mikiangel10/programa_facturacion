@@ -1,0 +1,10 @@
+//creacion de base de datos para facturacion
+//sqlite3 alejo.db
+create table productos(   id_prod integer  primary key autoincrement,   desc_prod text not null,   precio_prod decimal(10,2));
+create table localidades(  id_loc integer primary key autoincrement,  localidad text not null);
+create table tipo_iva(  id_iva integer primary key autoincrement,  desc_iva text not null);
+create table clientes(  id_clie integer primary key autoincrement,  nombre_clie text,  cuit_clie varchar(11) not null,loc_id integer,  iva_id integer, foreign key(iva_id) references tipo_iva(id_iva),  foreign key(loc_id) references localidades(id_loc) );
+create table facturas(  id_fact integer primary key autoincrement,  fecha text not null,  clie_id integer not null,   foreign key (clie_id) references clientes(id_clie));
+create table renglon(  id_renglon integer primary key autoincrement,  fact_id integer nor null,  prod_id integer not null,  cantidad integer not null,  foreign key(fact_id)references facturas(id_fact)  foreign key(prod_id)references productos(id_prod));
+create table estadisticas(  clie_id integer not null,  prod_id integer not null,  cant integer not null,  foreign key(clie_id) references clientes(id_clie),  foreign key(prod_id)references productos(id_prod));
+create view renglones as select  id_fact,fecha,id_renglon,nombre_clie,localidad, cuit_clie,desc_iva, productos.precio_prod*renglon.cantidad as subtot from renglon,clientes,facturas,localidades,tipo_iva, productos where facturas.clie_id=clientes.id_clie and clientes.iva_id=tipo_iva.id_iva and clientes.loc_id=id_loc and id_fact=renglon.fact_id and renglon.prod_id=id_prod;
