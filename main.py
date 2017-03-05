@@ -64,6 +64,14 @@ def std_fecha(fecha):
     c='20'+c
   return str(c+"-"+b+"-"+a)
 
+def facturacion_manual():
+  c=db.cursor()
+  i=c.execute("select desc_prod from estadisticas,productos where productos.id_prod=estadisticas.prod_id and estadisticas.cliente_id=?;"(pide_numclie())).fetchall()
+  for n in i:
+    a=input("Ingrese la cantidad de",i[0],"a facturar:")
+    ###seguir aca
+  
+
 def facturar(db):
   fecha=pedir_fecha()
   c=db.cursor()
