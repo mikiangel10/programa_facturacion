@@ -1,29 +1,74 @@
 '''programa_facturacion escrito por Miguel Angel Gómez
 28/2/17- publicado bajo licencia GPL
 '''
-def pide_numclie():
+
+class Boleta:
+  def __init__(self,numbol=0):
+    self.cur=db.cursor()
+    self.numbol=numbol
+    self.renglones=[]
+    if numbol==0:
+      self.clie_id='0'
+      self.fecha=time.strftime('%Y-%m-%d')
+      self.total=0     
+    else:
+      for n in self.cur.execute("select prod_id,cantidad from renglon where fact_id ={0}".format(self.numbol))
+        renglones.append(list(n))
+      self.clie_id,self.fecha=self.cur.execute("select clie_id, fecha from facturas where id_fact={0}".format(self.numbol)).fetchone()
+      self.total=int(self.cur.execute("select sum(precio_prod*cantidad)as total from productos,renglon where renglon.prod_id=productos.id_prod and renglon.fact_id={0}".format(self.numbol)).fetchone()[0])
+  def setNumbol(numbol):
+    self.__init__(numbol)
+  def setFecha(fecha=''):
+    if fecha=='':    
+      self.fecha= pedirFecha() 
+    elif compFecha(muestraFecha(fecha)):
+      self.fecha=muestraFecha(fecha)      
+  def addClie(clie_id):
+    self.clie_id=str(clie_id)
+  def addRenglon(self,id_prod,cant):
+    renglones.append([id_prod,cant])
+  def mostrarBoleta(self):
+    print("Nº:",self.numbol)  
+    print("Fecha:",muestraFecha(self.fecha))
+    cur=db.cursor()
+    datos_clie=self.cur.execute("select nombre_clie,cuit_clie,localidad,desc_iva from clientes,localidades,tipo_iva where id_clie={0} and tipo_iva.id_iva=clientes.iva_id and localidades.id_loc=clientes.loc_id".format(self.clie_id)).fetchone()
+    print("Cliente:",datos_clie[0])
+    print("CUIT:",datos_clie[1])
+    print("Localidad",datos_clie[2])
+    print("IVA:"datos_clie[3])
+    print("Cant\tProducto\t\tPrecio\tTotal"    
+    for renglon in self.renglones:
+      datos_prod=self.cur.execute("select desc_prod, precio_prod,precio_prod*{0} from productos where id_prod={1}".format(renglon[1],rengon[0])).fetchone()
+      print(renglon[1],"\t",datos_prod[0],"\t\t",datos_prod[1]"\t",datos_prod[2])
+      self.total+=datos_prod[2]
+    print("Total: \t\t\t\t\t", total)
+  def guardarBoleta(self):
+    self.cur.execute("insert into facturas (fecha,clie_id) values({0},{1}".format(self.fecha,self.clie_id))
+    for renglon in self.renglones:
+      self.cur.execute("insert into renglon(fact_id,prod_id,cantidad)values({0},{1},{2})".format(self.numbol,renglon)
+    db.commit()
+
+def pideNumClie():
   c=db.cursor()
   c.execute("select id_clie, nombre_clie from clientes;")
   for n in c:
     print(n)
   return int(input("Ingrese el numero de cliente"))
 
-def mostrar_fact(clie_id):
+def mostrarFactClie(clie_id):
   c=db.cursor()
   c1=db.cursor()
   c.execute("select id_fact from facturas where clie_id={0};".format(clie_id))
   for n in c:
-    c1.execute("select nombre_clie, cuit_clie,fecha,id_fact,tipo_iva.desc_iva,localidad,sum(cantidad*precio_prod) as total from renglon,productos,clientes,facturas,tipo_iva,localidades where id_clie={0} and facturas.id_fact={1} and tipo_iva.id_iva=(select iva_id from clientes where id_clie={0})and localidades.id_loc=(select loc_id from clientes where id_clie={0} )and renglon.fact_id={1} and renglon.prod_id=productos.id_prod;".format(clie_id,n[0]))
-    print ("Fecha\t\tFactura Nº\tCliente\t\t\tCUIT\tIVA\t\t\tLocalidad\t\tTOTAL")   
-    for i in c1:
-      print(i[2].ljust(20,' '),)    
+   actual=Boleta(n[0])
+   actual.mostrarBoleta()  
  # c.execute(" select cantidad,desc_prod,precio_prod from renglon,productos ,cantidad*precio_prod as total where fact_id=(select id_fact from facturas where facturas.clie_id=1)and productos.id_prod=renglon.prod_id;")  #sentencia para adquirir todos los renglones de un cliente
-#select sum(precio_prod*cantidad)as total from productos,renglon where renglon.prod_id=productos.id_prod and renglon.fact_id= {0};
+
   input("")
   return 1
 
 
-def crear_tablas(db):
+def crearTablas(db):
   try:
     print("Abriendo archivo...")
     f=open("creacion db","r")
@@ -41,31 +86,43 @@ def crear_tablas(db):
     db.commit()
   return 1
 
-def pedir_fecha():
+def pedirFecha():
   fecha=input("Ingrese fecha para facturacion(DD/MM/AAAA):")
-  patron='(^[1-9]{1}|0[1-9]|[1-2][0-9]|3[0-1])[/-]([1-9]{1}|0[1-9]|1[0-2])[/-](201[0-9]$|1[0-9]$)'
-  if re.match(patron,fecha) :
+  if compFecha(fecha):
     return std_fecha(fecha)
   else:
-    return pedir_fecha()
+    return pedirFecha()
 
-def most_fecha(str):
+def compFecha(fecha):
+  patron='(^[1-9]{1}|0[1-9]|[1-2][0-9]|3[0-1])[/-]([1-9]{1}|0[1-9]|1[0-2])[/-](201[0-9]$|1[0-9]$)'
+  return re.match(patron,fecha) 
+   
+def muestraFecha(str):
   a,b,v=fecha.split("/")
   return v+'/'+b+'/'+a
 
-def std_fecha(fecha):
+def std_fecha(fecha): #sqlite3 usa el sig formato para almacenar strings de fechas:'yyyy-mm-dd'
   fecha=fecha.replace("-","/")
-  a,b,c=fecha.split("/")
-  if len(a)<2:
+  d,m,y=fecha.split("/")
+  if len(d)<2:
     a='0'+a
-  if len(b)<2:
+  if len(m)<2:
     b='0'+b
-  if len(c)<4:
-    c='20'+c
-  return str(c+"-"+b+"-"+a)
+  if len(y)<4:
+    y='20'+y
+  return str(y+"-"+m+"-"+d)
 
-def facturar(db):
-  fecha=pedir_fecha()
+def facturacion_manual():
+  cur=db.cursor()
+  desc_prod=cur.execute("select desc_prod from estadisticas,productos where productos.id_prod=estadisticas.prod_id and estadisticas.clie_id=?;" pideNumClie())
+  for n in desc_prod:
+    a=input("Ingrese la cantidad de",n[0],"a facturar:")
+    
+###seguir aca
+
+
+def facturarAuto(db):
+  fecha=pedirFecha()
   c=db.cursor()
   c.execute("select * from clientes")
   c1=db.cursor()
@@ -146,15 +203,15 @@ def menu(db):
   if men.upper() == "A" :
     return actualizar_clientes(db)
   elif men.upper() == 'F' :
-    return facturar(db)
+    return facturarAuto(db)
   elif men.upper()=='C':
-    return crear_tablas(db)
+    return crearTablas(db)
   elif men.upper()=='Q':
     return 0
   elif men.upper()=='E':
     return actualizar_estadisticas(db)
   elif men.upper()=='M':
-    return mostrar_fact(pide_numclie())#redefinir para mostrar las boletas de una fecha
+    return mostrarFactClie(pideNumClie())#redefinir para mostrar las boletas de una fecha
   elif men.upper()=='B':
     return boletas_clie()#definir boletas_clie-para mostrar las boletas de un determinado cliente
   elif men.upper()=='FM':
