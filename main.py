@@ -110,7 +110,7 @@ def facturar(db):
 def actualizar_estadisticas(db):
   c=db.cursor()
   try:
-    f=open("est-{0}".format(archivo.strip(".db")),"r")
+    f=open("est-{0}".format(usuario.strip(".db")),"r")
   except FileNotFoundError:
     print("Archivo no encontrado")
     return 1
