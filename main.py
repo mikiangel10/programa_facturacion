@@ -134,7 +134,15 @@ def actualizar_clientes(db):
   return 1
 
 def menu(db):
-  men=input("Ingrese 'e' para  actualizar las estadisticas de compras\nIngrese 'a' para actualizar la tabla de clientes con el archivo clientes\nIngrese 'f' para realizar la facturacion mensual\nIngrese 'c' para crear las tablas \nIngrese 'q' para salir\n")
+  str_menu='''Ingrese 'e' para  actualizar las estadisticas de compras
+  Ingrese 'a' para actualizar la tabla de clientes con el archivo clientes
+  Ingrese 'f' para realizar la facturacion mensual
+  Ingrese 'm' para mostrar facturas segun fecha
+  Ingrese 'fm' para realizar una factura manualmente
+  Ingrese 'b' para mostrar las boletas de un cliente
+  Ingrese 'c' para crear las tablas
+  Ingrese 'q' para salir  '''
+  men=input(str_menu)
   if men.upper() == "A" :
     return actualizar_clientes(db)
   elif men.upper() == 'F' :
@@ -146,7 +154,11 @@ def menu(db):
   elif men.upper()=='E':
     return actualizar_estadisticas(db)
   elif men.upper()=='M':
-    return mostrar_fact(pide_numclie())
+    return mostrar_fact(pide_numclie())#redefinir para mostrar las boletas de una fecha
+  elif men.upper()=='B':
+    return boletas_clie()#definir boletas_clie-para mostrar las boletas de un determinado cliente
+  elif men.upper()=='FM':
+    return factura_man()#definir la funcion para hacer una factura manualmente
   else:
     return menu(db)
 
