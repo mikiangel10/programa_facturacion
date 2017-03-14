@@ -1,0 +1,8 @@
+#ignoramos todos los archivos que se usan para configuracion de las bases de los usuarios
+est-*
+clientes-*
+*.db
+#no ignoramos los archivos que se usan para configurar el usuarioejemplo
+!usuarioejemplo*
+!*usuarioejemplo
+
