@@ -1,3 +1,4 @@
+#! /usr/bin/python3
 '''programa_facturacion escrito por Miguel Angel Gómez
 28/2/17- publicado bajo licencia GPL
 '''
@@ -11,12 +12,21 @@ class Boleta:
     self.renglones=[]
     self.clie_id=cliente
     self.total=0     
+    self.erronea=False
     if self.numbol!=0:
-      for n in self.cur.execute("select prod_id,cantidad from renglon where fact_id ={0}".format(self.numbol)):
-        self.renglones.append(list(n))
-      self.clie_id,self.fecha=self.cur.execute("select clie_id, fecha from facturas where id_fact={0}".format(self.numbol)).fetchone()
-      print(self.fecha)
-      self.total=int(self.cur.execute("select sum(precio_prod*cantidad)as total from productos,renglon where renglon.prod_id=productos.id_prod and renglon.fact_id={0}".format(self.numbol)).fetchone()[0])
+      try:
+        for n in self.cur.execute("select prod_id,cantidad from renglon where fact_id ={0}".format(self.numbol)):
+          self.renglones.append(list(n))
+      except TypeError:
+          self.erronea=True
+          print("No hay renglones para esta factura Nº{0}".format(self.numbol))
+      try:
+        self.clie_id,self.fecha=self.cur.execute("select clie_id, fecha from facturas where id_fact={0}".format(self.numbol)).fetchone()
+      except TypeError:
+        self.erronea=True
+        print("No existe la factura Nº {0} en la base de datos".format(self.numbol))
+      if len(self.renglones)>0:
+        self.total=int(self.cur.execute("select sum(precio_prod*cantidad)as total from productos,renglon where renglon.prod_id=productos.id_prod and renglon.fact_id={0}".format(self.numbol)).fetchone()[0])
 
   def setNumbol(self,numbol):
     self.numbol=numbol
@@ -56,6 +66,10 @@ class Boleta:
       return pideCantidad(prod_id)   
 
   def mostrarBoleta(self):
+    if self.erronea:
+      print("Boleta Nº{0} con errores en la base de datos".format(self.numbol))
+      return 0
+    print('**'*30)
     print("Nº:",self.numbol)  
     print("Fecha:",muestraFecha(self.fecha))
     cur=db.cursor()
@@ -109,7 +123,6 @@ def pideFecha():
   fecha=input("Ingrese fecha para facturacion(DD/MM/AAAA):")
   if compFecha(fecha):
     fecha=stdFecha(fecha)
-    print(fecha)
     return fecha
   else:
     return pideFecha()
@@ -119,7 +132,6 @@ def compFecha(fecha):
   return re.match(patron,fecha) 
    
 def muestraFecha(fecha):
-  print(fecha)
   a,b,v=fecha.split("-")
   return v+'/'+b+'/'+a
 
@@ -167,7 +179,7 @@ def facturarManual():
 ###seguir aca
 
 
-def facturarAuto(db):
+def facturarAuto():
   fecha=pideFecha()
   c=db.cursor()
   c.execute("select * from clientes")
@@ -267,37 +279,76 @@ def agregarLocalidad():
     print("No se agrego una nueva Localidad")
   return 1     
 
+menu_muestra_fact='''
+Ingrese 'F' para ver las facturas por fecha
+Ingrese 'C' para ver las facturas de un cliente
+Ingrese 'U' para ver las ultimas facturas
+'''
 def mostrarFact():
-  opcion=input("Ingrese 'F' para ver las facturas por fecha\nIngrese 'C' para ver las facturas de un cliente")
-  if opcion.upper()=='F':
+  opcion=input(menu_muestra_fact).upper()
+  if opcion=='F':
     return mostrarFactFecha(pideFecha())
-  elif opcion.upper()=='C':
+  elif opcion=='C':
     return mostrarFactClie(pideNumClie())
+  elif opcion=='U':
+    return mostrarUltimas()
   else:
     return mostrarFact()
 
 def mostrarFactFecha(fecha):
   c=db.cursor()
+  paso=0
   for bol in c.execute("select id_fact from facturas where fecha=?",(fecha,)):
+    paso=1
     actual=Boleta(bol[0])
     actual.mostrarBoleta()
-    input('')
+  if not paso:
+    print('No hay facturas para la fecha indicada')
+    input=('')
   return 1
 
 def mostrarFactClie(clie_id):
   c=db.cursor()
+  paso=0
   c.execute("select id_fact from facturas where clie_id={0};".format(clie_id))
   for bol in c:
-   actual=Boleta(bol[0])
-   actual.mostrarBoleta()  
-   input("")
+    paso=1
+    actual=Boleta(bol[0])
+    actual.mostrarBoleta()  
+  if not paso:
+    print("No hay facturas emitidas a este cliente")
+    input=('')
   return 1
 
+def mostrarUltimas(ult=0):
+  if ult==0:
+    cur=db.cursor()  
+    ult=cur.execute("select max(id_fact) from facturas").fetchone()[0]
+  for n in range(10):
+    if ult>0:
+      actual=Boleta(ult)
+      actual.mostrarBoleta()
+      ult-=1
+  opcion=input("Ingrese 'm' para ver mas o 's' para salir").upper()
+  while opcion not in ('M','S'):
+    opcion=input("Ingrese 'm' para ver mas o 's' para salir").upper()
+  if opcion=='M':
+    return mostrarUltimas(ult)
+  elif opcion=='S':
+    return 1
+
+menu_agreg_datos='''
+Ingrese 'P' para agregar un Producto
+Ingrese 'I' para agregar una descripcion de IVA
+Ingrese 'L' para agregar una localidad
+   '''
 def agregarDatos():
-  opcion=input("Ingrese 'P' para agregar un Producto\nIngrese 'I' para agregar una descripcion de IVA\n")
-  if opcion.upper()=='P':
+  opcion=input(menu_agreg_datos).upper()
+  if opcion=='P':
     return agregarProducto()
-  elif opcion.upper()=='I':
+  elif opcion=='L':
+    return agregarLocalidad()
+  elif opcion=='I':
     return agregarIva()
   else:
     return agregarDato()
@@ -321,6 +372,7 @@ def agregarProducto():
   c=db.cursor()
   c.execute("insert into productos (desc_prod,precio_prod)values(?,?)",(producto,precio))
   db.commit()
+  print("Se agrego {0},precio {2} con el ID {1}".format(producto,cur.execute("select max(id_prod)from productos").fetchone()[0]),precio)
   return 1  
 
 def agregarIva():
@@ -333,15 +385,15 @@ def agregarIva():
   c=db.cursor()
   c.execute("insert into tipo_iva (desc_iva)values(?)",(tipo,))
   db.commit()
+  print("Se agrego {0} con el ID {1}".format(tipo,cur.execute("select max(id_iva)from tipo_iva").fetchone()[0]))
   return 1  
   
 def menu(db):
   str_menu='''
-  Ingrese 's' para agregar datos las tablas
-  Ingrese 'al' para agregar una localidad
+  Ingrese 's' para agregar datos a las tablas
   Ingrese 'e' para  actualizar las estadisticas de compras
   Ingrese 'a' para actualizar la tabla de clientes con el archivo clientes
-  Ingrese 'f' para realizar la facturacion mensual
+  Ingrese 'f' para realizar una facturacion 
   Ingrese 'm' para mostrar facturas
   Ingrese 'c' para crear las tablas
   Ingrese 'q' para salir 
@@ -349,8 +401,6 @@ def menu(db):
   men=input(str_menu)
   if men.upper() == "A" :
     return actualizar_clientes(db)
-  elif men.upper()=='AL':
-    return agregarLocalidad()
   elif men.upper() == 'F' :
     return facturar()
   elif men.upper()=='C':
@@ -371,7 +421,6 @@ import random
 import sqlite3
 usuario=input("Ingrese nombre de la base de datos:")
 db=sqlite3.connect(usuario+".db")
-prog=1
-while prog:
-  prog=menu(db)
+while menu(db):
+  pass
 db.close()
