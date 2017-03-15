@@ -1,29 +1,107 @@
+#! /usr/bin/python3
 '''programa_facturacion escrito por Miguel Angel Gómez
 28/2/17- publicado bajo licencia GPL
 '''
-def pide_numclie():
+
+class Boleta:
+  def __init__(self,numbol=0,fecha='',cliente=0):
+    self.cur=db.cursor()
+    self.cur1=db.cursor()
+    self.numbol=numbol
+    self.fecha=fecha
+    self.renglones=[]
+    self.clie_id=cliente
+    self.total=0     
+    self.erronea=False
+    if self.numbol!=0:
+      try:
+        for n in self.cur.execute("select prod_id,cantidad from renglon where fact_id ={0}".format(self.numbol)):
+          self.renglones.append(list(n))
+      except TypeError:
+          self.erronea=True
+          print("No hay renglones para esta factura Nº{0}".format(self.numbol))
+      try:
+        self.clie_id,self.fecha=self.cur.execute("select clie_id, fecha from facturas where id_fact={0}".format(self.numbol)).fetchone()
+      except TypeError:
+        self.erronea=True
+        print("No existe la factura Nº {0} en la base de datos".format(self.numbol))
+      if len(self.renglones)>0:
+        self.total=int(self.cur.execute("select sum(precio_prod*cantidad)as total from productos,renglon where renglon.prod_id=productos.id_prod and renglon.fact_id={0}".format(self.numbol)).fetchone()[0])
+
+  def setNumbol(self,numbol):
+    self.numbol=numbol
+
+  def setFecha(self,fecha):
+    self.fecha=fecha
+
+  def setClie(self,clie_id):
+    self.clie_id=clie_id
+
+  def addRenglon(self,id_prod,cant):
+    self.renglones.append([id_prod,cant])
+
+  def crearBoleta(self,fecha,cliente,auto=False):
+    self.setNumbol(self.cur.execute("select max(id_fact)+1 from facturas ").fetchone()[0])
+    self.setFecha(fecha)
+    self.clie_id=cliente
+    if auto:
+      for est in self.cur.execute("select prod_id, cantidad from estadisticas where clie_id=?",(self.clie_id,)):
+        prod_id,cantidades=est
+        cant= int(random.choice(cantidades.split(',')))
+        self.addRenglon(prod_id,cant)
+    else:
+      for est in self.cur.execute("select prod_id from estadisticas where clie_id=?",(self.clie_id,)):
+        print(est)
+        print(est[0])
+        c=est[0]
+        self.addRenglon(est[0],self.pideCantidad(est[0]))
+
+  def pideCantidad(self,prod_id):
+    print(prod_id)
+    producto=self.cur1.execute("select desc_prod from productos where id_prod=?",(prod_id,)).fetchone()[0]
+    cant=input("Ingrese la cantidad de {0}".format(producto))
+    if cant.isdigit():
+      return cant
+    else:
+      return pideCantidad(prod_id)   
+
+  def mostrarBoleta(self):
+    if self.erronea:
+      print("Boleta Nº{0} con errores en la base de datos".format(self.numbol))
+      return 0
+    print('**'*30)
+    print("Nº:",self.numbol)  
+    print("Fecha:",muestraFecha(self.fecha))
+    cur=db.cursor()
+    datos_clie=self.cur.execute("select nombre_clie,cuit_clie,localidad,desc_iva from clientes,localidades,tipo_iva where id_clie={0} and tipo_iva.id_iva=clientes.iva_id and localidades.id_loc=clientes.loc_id".format(self.clie_id)).fetchone()
+    print("Cliente:",datos_clie[0])
+    print("CUIT:",datos_clie[1])
+    print("Localidad",datos_clie[2])
+    print("IVA:",datos_clie[3])
+    print("Cant\tProducto\t\tPrecio\tTotal")    
+    for renglon in self.renglones :
+      datos_prod=self.cur.execute("select desc_prod, precio_prod,precio_prod*{0} from productos where id_prod={1}".format(renglon[1],renglon[0])).fetchone()
+      print(renglon[1],"\t",datos_prod[0],"\t\t",datos_prod[1],"\t",datos_prod[2])
+      self.total+=datos_prod[2]
+    print("Total: \t\t\t\t\t", self.total)
+
+  def guardarBoleta(self):
+    self.cur.execute("insert into facturas (fecha,clie_id) values('{0}',{1})".format(self.fecha,self.clie_id))
+    for renglon in self.renglones:
+      self.cur.execute("insert into renglon(fact_id,prod_id,cantidad)values({0},{1},{2})".format(self.numbol,renglon[0],renglon[1]))
+    db.commit()
+
+
+def pideNumClie():
   c=db.cursor()
   c.execute("select id_clie, nombre_clie from clientes;")
   for n in c:
     print(n)
   return int(input("Ingrese el numero de cliente"))
 
-def mostrar_fact(clie_id):
-  c=db.cursor()
-  c1=db.cursor()
-  c.execute("select id_fact from facturas where clie_id={0};".format(clie_id))
-  for n in c:
-    c1.execute("select nombre_clie, cuit_clie,fecha,id_fact,tipo_iva.desc_iva,localidad,sum(cantidad*precio_prod) as total from renglon,productos,clientes,facturas,tipo_iva,localidades where id_clie={0} and facturas.id_fact={1} and tipo_iva.id_iva=(select iva_id from clientes where id_clie={0})and localidades.id_loc=(select loc_id from clientes where id_clie={0} )and renglon.fact_id={1} and renglon.prod_id=productos.id_prod;".format(clie_id,n[0]))
-    print ("Fecha\t\tFactura Nº\tCliente\t\t\tCUIT\tIVA\t\t\tLocalidad\t\tTOTAL")   
-    for i in c1:
-      print(i[2].ljust(20,' '),)    
  # c.execute(" select cantidad,desc_prod,precio_prod from renglon,productos ,cantidad*precio_prod as total where fact_id=(select id_fact from facturas where facturas.clie_id=1)and productos.id_prod=renglon.prod_id;")  #sentencia para adquirir todos los renglones de un cliente
-#select sum(precio_prod*cantidad)as total from productos,renglon where renglon.prod_id=productos.id_prod and renglon.fact_id= {0};
-  input("")
-  return 1
 
-
-def crear_tablas(db):
+def crearTablas(db):
   try:
     print("Abriendo archivo...")
     f=open("creacion db","r")
@@ -41,31 +119,68 @@ def crear_tablas(db):
     db.commit()
   return 1
 
-def pedir_fecha():
+def pideFecha():
   fecha=input("Ingrese fecha para facturacion(DD/MM/AAAA):")
-  patron='(^[1-9]{1}|0[1-9]|[1-2][0-9]|3[0-1])[/-]([1-9]{1}|0[1-9]|1[0-2])[/-](201[0-9]$|1[0-9]$)'
-  if re.match(patron,fecha) :
-    return std_fecha(fecha)
+  if compFecha(fecha):
+    fecha=stdFecha(fecha)
+    return fecha
   else:
-    return pedir_fecha()
+    return pideFecha()
 
-def most_fecha(str):
-  a,b,v=fecha.split("/")
+def compFecha(fecha):
+  patron='(^[1-9]{1}|0[1-9]|[1-2][0-9]|3[0-1])[/-]([1-9]{1}|0[1-9]|1[0-2])[/-](201[0-9]$|1[0-9]$)'
+  return re.match(patron,fecha) 
+   
+def muestraFecha(fecha):
+  a,b,v=fecha.split("-")
   return v+'/'+b+'/'+a
 
-def std_fecha(fecha):
+def stdFecha(fecha): #sqlite3 usa el sig formato para almacenar strings de fechas:'yyyy-mm-dd'
   fecha=fecha.replace("-","/")
-  a,b,c=fecha.split("/")
-  if len(a)<2:
-    a='0'+a
-  if len(b)<2:
-    b='0'+b
-  if len(c)<4:
-    c='20'+c
-  return str(c+"-"+b+"-"+a)
+  d,m,y=fecha.split("/")
+  if len(d)<2:
+    d='0'+d
+  if len(m)<2:
+    m='0'+m
+  if len(y)<4:
+    y='20'+y
+  return str(y+"-"+m+"-"+d)
 
-def facturar(db):
-  fecha=pedir_fecha()
+def pideTipoFacturacion():
+  opcion=input("Ingrese 'A' para facturar a todo los clientes o 'M' para facturar a uno:\n").upper()
+  if opcion=='A':  
+    return True
+  elif opcion=='M':
+    return False
+  else:
+    return pideTipoFacturacion()
+
+def facturar():
+  if pideTipoFacturacion():
+    return facturarAuto()
+  else:
+    return facturarManual()
+
+def facturarManual():
+  nueva=Boleta()
+  nueva.crearBoleta(fecha=pideFecha(),cliente=pideNumClie())
+  sigue=False
+  cont=0
+  while(not sigue):
+    nueva.mostrarBoleta()
+    if input("Desea confirmar la boleta?").upper()=='S':
+      sigue=True
+    else:
+      cont+=1
+    if cont==3:
+      return 1
+    nueva.guardarBoleta()
+    return 1
+###seguir aca
+
+
+def facturarAuto():
+  fecha=pideFecha()
   c=db.cursor()
   c.execute("select * from clientes")
   c1=db.cursor()
@@ -133,32 +248,171 @@ def actualizar_clientes(db):
   db.commit()
   return 1
 
+def pideLocalidad():
+  loc=input("Ingrese el nombre de la localidad:\t")
+  if input("La localidad {0} es correcta?".format(loc)) in ('s','S','y','Y'):
+    return compLocalidad(loc)
+  else:
+    return pideLocalidad()
+
+def compLocalidad(localidad):
+  if localidad=='0':
+    return 0
+  elif len(localidad)<4:
+    compLocalidad(input("Nombre de localidad demasiado corto.Reingrese('0'para salir):\t"))
+  cur=db.cursor()
+  for loc in cur.execute("select localidad from localidades"):
+    if loc[0].upper()==localidad:
+      print("Localidad existente")
+      return 0
+  return localidad
+
+def agregarLocalidad():
+  cur=db.cursor()  
+  localidad=pideLocalidad()
+  if localidad!=0:
+    print(localidad)
+    cur.execute("Insert into localidades (localidad)values(?)",(localidad,))
+    db.commit()
+    print("Se agrego {0} con el ID {1}".format(localidad,cur.execute("select max(id_loc)from localidades").fetchone()[0]))
+  else:
+    print("No se agrego una nueva Localidad")
+  return 1     
+
+menu_muestra_fact='''
+Ingrese 'F' para ver las facturas por fecha
+Ingrese 'C' para ver las facturas de un cliente
+Ingrese 'U' para ver las ultimas facturas
+'''
+def mostrarFact():
+  opcion=input(menu_muestra_fact).upper()
+  if opcion=='F':
+    return mostrarFactFecha(pideFecha())
+  elif opcion=='C':
+    return mostrarFactClie(pideNumClie())
+  elif opcion=='U':
+    return mostrarUltimas()
+  else:
+    return mostrarFact()
+
+def mostrarFactFecha(fecha):
+  c=db.cursor()
+  paso=0
+  for bol in c.execute("select id_fact from facturas where fecha=?",(fecha,)):
+    paso=1
+    actual=Boleta(bol[0])
+    actual.mostrarBoleta()
+  if not paso:
+    print('No hay facturas para la fecha indicada')
+    input=('')
+  return 1
+
+def mostrarFactClie(clie_id):
+  c=db.cursor()
+  paso=0
+  c.execute("select id_fact from facturas where clie_id={0};".format(clie_id))
+  for bol in c:
+    paso=1
+    actual=Boleta(bol[0])
+    actual.mostrarBoleta()  
+  if not paso:
+    print("No hay facturas emitidas a este cliente")
+    input=('')
+  return 1
+
+def mostrarUltimas(ult=0):
+  if ult==0:
+    cur=db.cursor()  
+    ult=cur.execute("select max(id_fact) from facturas").fetchone()[0]
+  for n in range(10):
+    if ult>0:
+      actual=Boleta(ult)
+      actual.mostrarBoleta()
+      ult-=1
+  opcion=input("Ingrese 'm' para ver mas o 's' para salir").upper()
+  while opcion not in ('M','S'):
+    opcion=input("Ingrese 'm' para ver mas o 's' para salir").upper()
+  if opcion=='M':
+    return mostrarUltimas(ult)
+  elif opcion=='S':
+    return 1
+
+menu_agreg_datos='''
+Ingrese 'P' para agregar un Producto
+Ingrese 'I' para agregar una descripcion de IVA
+Ingrese 'L' para agregar una localidad
+   '''
+def agregarDatos():
+  opcion=input(menu_agreg_datos).upper()
+  if opcion=='P':
+    return agregarProducto()
+  elif opcion=='L':
+    return agregarLocalidad()
+  elif opcion=='I':
+    return agregarIva()
+  else:
+    return agregarDato()
+
+def agregarProducto():
+  print("Ingrese '0' para cancelar")
+  producto=input("Ingrese la descripcion del producto:\t")
+  if producto=='0':
+    return 1
+  if input("Ingrese 's' si es correcto\n").upper()!='S'  :
+    return agregarProducto()
+  precio='a'
+  while type(precio)!=float:
+    precio=input("Ingrese el precio del producto:\t")
+    try:  
+      precio=round(float(precio),2)
+    except ValueError:
+      print("Ingrese un numero válido")
+  if input("Ingrese 's' si es correcto\n").upper()!='S'  :
+    return agregarProducto()
+  c=db.cursor()
+  c.execute("insert into productos (desc_prod,precio_prod)values(?,?)",(producto,precio))
+  db.commit()
+  print("Se agrego {0},precio {2} con el ID {1}".format(producto,cur.execute("select max(id_prod)from productos").fetchone()[0]),precio)
+  return 1  
+
+def agregarIva():
+  print("Ingrese '0' para cancelar")
+  tipo=input("Ingrese la situacion ante el IVA:\t")
+  if tipo=='0':
+    return 1
+  if input("Ingrese 's' si es correcto\n").upper()!='S'  :
+    return agregarIva()
+  c=db.cursor()
+  c.execute("insert into tipo_iva (desc_iva)values(?)",(tipo,))
+  db.commit()
+  print("Se agrego {0} con el ID {1}".format(tipo,cur.execute("select max(id_iva)from tipo_iva").fetchone()[0]))
+  return 1  
+  
 def menu(db):
-  str_menu='''Ingrese 'e' para  actualizar las estadisticas de compras
+  str_menu='''
+  Ingrese 's' para agregar datos a las tablas
+  Ingrese 'e' para  actualizar las estadisticas de compras
   Ingrese 'a' para actualizar la tabla de clientes con el archivo clientes
-  Ingrese 'f' para realizar la facturacion mensual
-  Ingrese 'm' para mostrar facturas segun fecha
-  Ingrese 'fm' para realizar una factura manualmente
-  Ingrese 'b' para mostrar las boletas de un cliente
+  Ingrese 'f' para realizar una facturacion 
+  Ingrese 'm' para mostrar facturas
   Ingrese 'c' para crear las tablas
-  Ingrese 'q' para salir  '''
+  Ingrese 'q' para salir 
+'''
   men=input(str_menu)
   if men.upper() == "A" :
     return actualizar_clientes(db)
   elif men.upper() == 'F' :
-    return facturar(db)
+    return facturar()
   elif men.upper()=='C':
-    return crear_tablas(db)
+    return crearTablas(db)
   elif men.upper()=='Q':
     return 0
   elif men.upper()=='E':
     return actualizar_estadisticas(db)
+  elif men.upper()=='S':
+    return agregarDatos()
   elif men.upper()=='M':
-    return mostrar_fact(pide_numclie())#redefinir para mostrar las boletas de una fecha
-  elif men.upper()=='B':
-    return boletas_clie()#definir boletas_clie-para mostrar las boletas de un determinado cliente
-  elif men.upper()=='FM':
-    return factura_man()#definir la funcion para hacer una factura manualmente
+    return mostrarFact()#redefinir para mostrar las boletas de una fecha
   else:
     return menu(db)
 
@@ -167,7 +421,6 @@ import random
 import sqlite3
 usuario=input("Ingrese nombre de la base de datos:")
 db=sqlite3.connect(usuario+".db")
-prog=1
-while prog:
-  prog=menu(db)
+while menu(db):
+  pass
 db.close()
