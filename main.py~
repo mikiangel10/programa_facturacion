@@ -107,7 +107,7 @@ class Boleta:
       self.cur.execute("update facturas set fecha={0},clie_id={1}, anulada={2} where id_fact={3}".format(self.fecha,self.clie_id,self.nula,self.numbol))
     else:
 #      self.cur.execute("insert into facturas (id_fact,fecha,clie_id,anulada) values({0},'{1}',{2},{3})".format(self.numbol,self.fecha,self.clie_id,self.nula))
-      self.cur.execute("insert into facturas (id_fact,fecha,clie_id) values({0},'{1}',{2})".format(self.numbol,self.fecha,self.clie_id))
+			self.cur.execute("insert into facturas (id_fact,fecha,clie_id) values({0},'{1}',{2})".format(self.numbol,self.fecha,self.clie_id))
       for renglon in self.renglones:
         self.cur.execute("insert into renglon(fact_id,prod_id,cantidad)values({0},{1},{2})".format(self.numbol,renglon[0],renglon[1]))
     db.commit()
