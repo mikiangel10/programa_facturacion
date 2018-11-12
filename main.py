@@ -28,7 +28,7 @@ class Boleta:
     self.nula=False
     if self.numbol != 0:
       try:
-        for n in self.cur.execute("select prod_id,cantidad from renglon where fact_id ={0}".format(self.numbol)):
+        for n in self.cur.execute("select prod_id,cantidad,valor from renglones where fact_id ={0}".format(self.numbol)):
           self.renglones.append(list(n))
       except TypeError:
           self.erronea=True
@@ -39,7 +39,7 @@ class Boleta:
         self.erronea=True
         print("No existe la factura Nº {0} en la base de datos".format(self.numbol))
       if len(self.renglones)>0:
-        self.total=int(self.cur.execute("select sum(precio_prod*cantidad)as total from productos,renglon where renglon.prod_id=productos.id_prod and renglon.fact_id={0}".format(self.numbol)).fetchone()[0])
+        self.total=int(self.cur.execute("select sum(subtot) from renglones where id_fact={0}".format(self.numbol)).fetchone()[0])
 
   def setNula(self,anulada):
     self.nula=anulada
@@ -55,22 +55,22 @@ class Boleta:
   def setClie(self,clie_id):
     self.clie_id=clie_id
 
-  def addRenglon(self,id_prod,cant):
-    self.renglones.append([id_prod,cant])
+  def addRenglon(self,id_prod,cant,id_precio):
+    self.renglones.append([id_prod,cant,id_precio])
 
   def crearBoleta(self,fecha,cliente,auto=False):
     self.setNumbol(self.cur.execute("select max(id_fact)+1 from facturas ").fetchone()[0])
     self.setFecha(fecha)
     self.clie_id=cliente
     if auto:
-      for est in self.cur.execute("select prod_id, cantidad from estadisticas where clie_id=?",(self.clie_id,)):
-        prod_id,cantidades=est
+      for est in self.cur.execute("select prod_id, cant,id_precio from estadisticas,precios where id_prod=prod_id and fecha_val=(select max(fecha_val) from precios) and clie_id=?",(self.clie_id,)):
+        prod_id,cantidades,id_precio=est 
         cant= int(random.choice(cantidades.split(',')))
-        self.addRenglon(prod_id,cant)
+        self.addRenglon(prod_id,cant,id_precio)
     else:
-      for est in self.cur.execute("select prod_id from estadisticas where clie_id=?",(self.clie_id,)):
+      for est in self.cur.execute("select prod_id,id_precio from estadisticas,precios where id_prod=prod_id and fecha_val=(select max(fecha_val) from precios) and clie_id=?",(self.clie_id,)):
         #c=est[0]
-        self.addRenglon(est[0],self.pideCantidad(est[0]))
+        self.addRenglon(est[0],self.pideCantidad(est[0]),est[1])
 
   def pideCantidad(self,prod_id):
     print(prod_id)
@@ -97,9 +97,10 @@ class Boleta:
     print("Cant\tProducto\t\tPrecio\tTotal")    
     self.total=0
     for renglon in self.renglones :
-      datos_prod=self.cur.execute("select desc_prod, precio_prod,precio_prod*{0} from productos where id_prod={1}".format(renglon[1],renglon[0])).fetchone()
-      print(renglon[1],"\t",datos_prod[0],"\t\t",datos_prod[1],"\t",datos_prod[2])
-      self.total+=datos_prod[2]
+      datos_prod=self.cur.execute("select desc_prod,valor from productos,precios where id_prod={1} and id_precio={2}".format(renglon[0],renglon[2])).fetchone()
+      subt=datos_prod[1]*renglon[1]
+      print(renglon[1],"\t",datos_prod[0],"\t\t",renglon[2],"\t",subt)
+      self.total+=subt
     print("Total: \t\t\t\t\t", self.total)
 
   def guardarBoleta(self):
@@ -109,7 +110,7 @@ class Boleta:
 #      self.cur.execute("insert into facturas (id_fact,fecha,clie_id,anulada) values({0},'{1}',{2},{3})".format(self.numbol,self.fecha,self.clie_id,self.nula))
       self.cur.execute("insert into facturas (id_fact,fecha,clie_id) values({0},'{1}',{2})".format(self.numbol,self.fecha,self.clie_id))
       for renglon in self.renglones:
-        self.cur.execute("insert into renglon(fact_id,prod_id,cantidad)values({0},{1},{2})".format(self.numbol,renglon[0],renglon[1]))
+        self.cur.execute("insert into renglon(fact_id,prod_id,cantidad,id_precio)values({0},{1},{2})".format(self.numbol,renglon[0],renglon[1],renglon[2]))
     db.commit()
 
   def imprimir(self):
@@ -160,7 +161,8 @@ class Boleta:
     aux.drawString(cx_contado,cy_contado,"x")#pone x en condicion de contado
     cont=0 
     for renglon in self.renglones:
-      precio,producto=self.cur.execute("select precio_prod,desc_prod from productos where id_prod={0}".format(renglon[0])).fetchone()
+      producto=self.cur.execute("select desc_prod from productos where id_prod={0}".format(renglon[0])).fetchone()
+      precio=self.cur.execute("select valor from precios where id_precio={0}".format(renglon[2])).fetchone()
       aux.drawString(cx_cant,cy_renglon-salto_renglon*cont,str(renglon[1]))
       aux.drawString(cx_prod,cy_renglon-salto_renglon*cont,producto)
       aux.drawString(cx_precio,cy_renglon-salto_renglon*cont,'{:.2f}'.format(precio))
@@ -394,9 +396,11 @@ def facturarAuto():
       for i in c1:    #iteraciones para definir un renglon
         lista=[i[0]]  #estadisticas.prod_id 
         lista.append(int(random.choice(i[1].strip("'\n").split(","))))  #cantidad seleccionada aleatoria desde estadisticas.cant
-        lista.append(c2.execute("select precio_prod from productos where  id_prod={}".format(i[0])).fetchone()[0]) #productos.precio
+        id_pre,val=c2.execute("select precio_id,valor from precios where fecha_val=(select max(fecha_val) from  precios where fecha_val <= {0} ) and id_prod={1}".format(fecha,i[0])).fetchone() #precios.id_precio precios.valor
+        lista.append(val)
         lista.append(lista[1]*lista[2]) #subtotal del renglon
         total+=lista[3]
+        lista.append(id_pre)
         renglones.append(lista)
       print("cantidad\tDescripcion\t\tPrecio unit.\tTotal")
       for i in renglones:
@@ -417,7 +421,7 @@ def facturarAuto():
       c1.execute("insert into facturas(id_fact,fecha,clie_id)values({0},'{1}',{2});".format(numero_boleta,fecha , int(n[0])))
       for i in renglones:
         if i[1]>0:
-          c1.execute("insert into renglon(fact_id,prod_id,cantidad)values((select max(id_fact) from facturas),{0},{1});".format(i[0],i[1]))
+          c1.execute("insert into renglon(fact_id,prod_id,cantidad,id_precio)values((select max(id_fact) from facturas),{0},{1},{2});".format(i[0],i[1]),i[4])
       db.commit()
       imprimir=input("Cambios realizados.¿Desea Imprimir?(S/n)")
       if imprimir.upper() != 'N':
@@ -529,7 +533,7 @@ def mostrarUltimas(ult=0):
   if ult==0:
     cur=db.cursor()  
     ult=cur.execute("select max(id_fact) from facturas").fetchone()[0]
-  for n in range(10):
+  for n in range(3):
     if ult>0:
       actual=Boleta(ult)
       actual.mostrarBoleta()
@@ -578,7 +582,8 @@ def agregarProducto():
   if input("Ingrese 's' si es correcto\n").upper()!='S'  :
     return agregarProducto()
   c=db.cursor()
-  c.execute("insert into productos (desc_prod,precio_prod)values(?,?)",(producto,precio))
+  c.execute("insert into productos (desc_prod)values(?)",(producto))
+  c.execute("insert into precios (valor,fecha_val)values(?,?)",(precio,str(datetime.date.today())))
   db.commit()
   print("Se agrego {0},precio {2} con el ID {1}".format(producto,cur.execute("select max(id_prod)from productos").fetchone()[0]),precio)
   return 1  

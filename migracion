@@ -1,0 +1,34 @@
+
+
+
+
+tablas 
+
+CREATE TABLE productos_2(   id_prod integer  primary key autoincrement,   desc_prod text not null);
+
+insert into productos_2 select id_prod,desc_prod from productos;
+
+drop table productos;
+
+alter table productos_2 rename to productos;
+
+CREATE TABLE precios (precio_id integer primary key autoincrement, id_prod integer not null, fecha_val text not null default (date('now')), valor decimal(10,2) not null default 0,foreign key (id_prod) references productos(id_prod) );
+
+insert into precios (id_prod,valor) values (1,61),(2,67),(3,24),(4,25),(5,45);
+
+insert into precios (id_prod,valor) values (1,70),(2,75),(3,28),(4,30),(5,52);
+
+alter table renglon add column id_precio integer not null default 1 references precios(id_precio);
+
+update renglon set id_precio=prod_id where fact_id <1426;
+update renglon set id_precio=prod_id+5 where fact_id >1425;
+
+drop view renglones;
+
+CREATE VIEW renglones as select  id_fact,fecha,id_renglon,nombre_clie,localidad, cuit_clie,desc_iva,desc_prod,renglon.cantidad,precios.valor, precios.valor*renglon.cantidad as subtot from renglon,clientes,facturas,localidades,tipo_iva, productos, precios where facturas.clie_id=clientes.id_clie and clientes.iva_id=tipo_iva.id_iva and clientes.loc_id=id_loc and id_fact=renglon.fact_id and renglon.prod_id=productos.id_prod and facturas.anulada=0 and renglon.id_precio=precios.precio_id;
+
+
+//como seleccionar los valores correctamente
+
+select facturas.id_fact,renglon.cantidad,productos.desc_prod,precio.valor from facturas,renglon,productos,precio where facturas.id_fact=renglon.fact_id and productos.id_prod=renglon.prod_id and renglon.prod_id=precio.id_prod and precio.fecha_val<facturas.fecha and fact_id=1300;
+

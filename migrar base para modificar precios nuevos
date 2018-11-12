@@ -1,0 +1,19 @@
+
+
+
+
+tablas 
+
+CREATE TABLE productos_2(   id_prod integer  primary key autoincrement,   desc_prod text not null);
+insert into productos_2 select id_prod,desc_prod from productos;
+drop table productos;
+alter tabel productos_2 rename to productos;
+CREATE TABLE precio (id_precio integer primary key autoincrement, id_prod integer not null, fecha_val text not null default (date('now')), valor decimal(10,2) not null default 0,foreign key (id_prod) references productos(id_prod) );
+
+
+falta alterar la  view renglones;
+
+//como seleccionar los valores correctamente
+
+select facturas.id_fact,renglon.cantidad,productos.desc_prod,precio.valor from facturas,renglon,productos,precio where facturas.id_fact=renglon.fact_id and productos.id_prod=renglon.prod_id and renglon.prod_id=precio.id_prod and precio.fecha_val<facturas.fecha and fact_id=1300;
+
