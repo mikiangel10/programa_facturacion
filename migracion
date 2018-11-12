@@ -25,7 +25,7 @@ update renglon set id_precio=prod_id+5 where fact_id >1425;
 
 drop view renglones;
 
-CREATE VIEW renglones as select  id_fact,fecha,id_renglon,nombre_clie,localidad, cuit_clie, desc_iva, prod_id, desc_prod, renglon.cantidad, precios.valor, precios.valor*renglon.cantidad as subtot from renglon, clientes,facturas, localidades, tipo_iva, productos, precios where facturas.clie_id=clientes.id_clie and clientes.iva_id=tipo_iva.id_iva and clientes.loc_id=id_loc and id_fact=renglon.fact_id and renglon.prod_id=productos.id_prod and facturas.anulada=0 and renglon.id_precio=precios.precio_id;
+CREATE VIEW renglones as select  id_fact,fecha,id_renglon,nombre_clie,localidad, cuit_clie, desc_iva, prod_id, desc_prod, renglon.cantidad, precios.precio_id, precios.valor, precios.valor*renglon.cantidad as subtot from renglon, clientes,facturas, localidades, tipo_iva, productos, precios where facturas.clie_id=clientes.id_clie and clientes.iva_id=tipo_iva.id_iva and clientes.loc_id=id_loc and id_fact=renglon.fact_id and renglon.prod_id=productos.id_prod and facturas.anulada=0 and renglon.id_precio=precios.precio_id;
 
 
 //como seleccionar los valores correctamente

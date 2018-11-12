@@ -28,7 +28,7 @@ class Boleta:
     self.nula=False
     if self.numbol != 0:
       try:
-        for n in self.cur.execute("select prod_id,cantidad,valor from renglones where id_fact ={0}".format(self.numbol)):
+        for n in self.cur.execute("select prod_id,cantidad,precio_id from renglones where id_fact ={0}".format(self.numbol)):
           self.renglones.append(list(n))
       except TypeError:
           self.erronea=True
