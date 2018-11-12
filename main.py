@@ -97,7 +97,7 @@ class Boleta:
     print("Cant\tProducto\t\tPrecio\tTotal")    
     self.total=0
     for renglon in self.renglones :
-      datos_prod=self.cur.execute("select desc_prod,valor from productos,precios where productos.id_prod={0} and id_precio={1}".format(renglon[0],renglon[2])).fetchone()
+      datos_prod=self.cur.execute("select desc_prod,valor from productos,precios where productos.id_prod={0} and precio_id={1}".format(renglon[0],renglon[2])).fetchone()
       subt=datos_prod[1]*renglon[1]
       print(renglon[1],"\t",datos_prod[0],"\t\t",renglon[2],"\t",subt)
       self.total+=subt
