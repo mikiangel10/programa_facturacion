@@ -7,7 +7,7 @@ tablas
 CREATE TABLE productos_2(   id_prod integer  primary key autoincrement,   desc_prod text not null);
 insert into productos_2 select id_prod,desc_prod from productos;
 drop table productos;
-alter tabel productos_2 rename to productos;
+alter table productos_2 rename to productos;
 CREATE TABLE precio (id_precio integer primary key autoincrement, id_prod integer not null, fecha_val text not null default (date('now')), valor decimal(10,2) not null default 0,foreign key (id_prod) references productos(id_prod) );
 
 
