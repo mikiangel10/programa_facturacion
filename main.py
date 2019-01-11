@@ -123,7 +123,7 @@ class Boleta:
     domicilio=datos_clie[2]
     localidad=datos_clie[3]
     iva_clie=datos_clie[4]
-    aux=canvas.Canvas("boleta.pdf",pagesize=(478,583))#583 para las boletas nuevas-600 para las viejas
+    aux=canvas.Canvas("boleta.pdf",pagesize=(478,585))#585 para las boletas nuevas-600 para las viejas
     cx_dia=363
     cx_mes=398
     cx_ano=436
